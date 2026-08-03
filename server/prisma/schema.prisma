@@ -1,0 +1,313 @@
+// ============================================================
+// Bharatiya Hindu Shakti Foundation - Prisma Schema
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// ADMIN
+// ------------------------------------------------------------
+
+// System-level dashboard permission. NOT an organization designation.
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+model Admin {
+  id        String    @id @default(uuid())
+  name      String
+  phone     String    @unique
+  role      AdminRole @default(ADMIN)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Links an ADMIN (created automatically via designation assignment) back
+  // to the Member who holds the designation. Null for admins created
+  // directly (e.g. the bootstrap Super Admin) with no member record.
+  memberId String? @unique
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@map("admins")
+}
+
+// OTP records used for both public applicant verification and admin login
+model OtpRequest {
+  id        String   @id @default(uuid())
+  phone     String
+  otp       String
+  purpose   String // "APPLICATION" | "ADMIN_LOGIN"
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose])
+  @@map("otp_requests")
+}
+
+// ------------------------------------------------------------
+// ORGANIZATIONAL HIERARCHY
+// State -> District -> Assembly -> Mandal -> Village Panchayat -> Member
+// ------------------------------------------------------------
+model State {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  districts District[]
+
+  @@map("states")
+}
+
+model District {
+  id      String @id @default(uuid())
+  name    String
+  stateId String
+  state   State  @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  assemblies   Assembly[]
+  members      Member[] // <-- ADD THIS
+  applications MembershipApplication[] // <-- ADD THIS
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, stateId])
+  @@map("districts")
+}
+
+model Assembly {
+  id           String                  @id @default(uuid())
+  name         String
+  districtId   String
+  district     District                @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  mandals      Mandal[]
+  members      Member[]
+  applications MembershipApplication[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([name, districtId])
+  @@map("assemblies")
+}
+
+model Mandal {
+  id                String                  @id @default(uuid())
+  name              String
+  assemblyId        String
+  assembly          Assembly                @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  villagePanchayats VillagePanchayat[]
+  members           Member[]
+  applications      MembershipApplication[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([name, assemblyId])
+  @@map("mandals")
+}
+
+model VillagePanchayat {
+  id           String                  @id @default(uuid())
+  name         String
+  mandalId     String
+  mandal       Mandal                  @relation(fields: [mandalId], references: [id], onDelete: Cascade)
+  members      Member[]
+  applications MembershipApplication[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([name, mandalId])
+  @@map("village_panchayats")
+}
+
+// ------------------------------------------------------------
+// MEMBERSHIP APPLICATION (public submission, pending review)
+// ------------------------------------------------------------
+model MembershipApplication {
+  id              String    @id @default(uuid())
+  fullName        String
+  fatherName      String
+  dob             DateTime
+  gender          String // "MALE" | "FEMALE" | "OTHER"
+  address         String
+  districtId      String
+  assemblyId      String
+  mandalId        String
+  panchayatId     String
+  phone           String
+  phoneVerified   Boolean   @default(false)
+  email           String?
+  aadhaarLast4    String
+  photoPath       String?
+  idProofPath     String?
+  status          String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  rejectionReason String?
+  reviewedAt      DateTime?
+
+  district  District         @relation(fields: [districtId], references: [id])
+  assembly  Assembly         @relation(fields: [assemblyId], references: [id])
+  mandal    Mandal           @relation(fields: [mandalId], references: [id])
+  panchayat VillagePanchayat @relation(fields: [panchayatId], references: [id])
+
+  member Member?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("membership_applications")
+}
+
+// ------------------------------------------------------------
+// MEMBER (created once an application is approved)
+// ------------------------------------------------------------
+model Member {
+  id           String   @id @default(uuid())
+  memberId     String   @unique // human readable e.g. BHSF-KA-000123
+  fullName     String
+  fatherName   String
+  dob          DateTime
+  gender       String
+  address      String
+  phone        String
+  email        String?
+  aadhaarLast4 String
+  photoPath    String?
+  idProofPath  String?
+  status       String   @default("ACTIVE") // ACTIVE | INACTIVE
+
+  districtId  String
+  assemblyId  String
+  mandalId    String
+  panchayatId String
+  district    District         @relation(fields: [districtId], references: [id])
+  assembly    Assembly         @relation(fields: [assemblyId], references: [id])
+  mandal      Mandal           @relation(fields: [mandalId], references: [id])
+  panchayat   VillagePanchayat @relation(fields: [panchayatId], references: [id])
+
+  applicationId String?                @unique
+  application   MembershipApplication? @relation(fields: [applicationId], references: [id])
+
+  designation DepartmentAssignment[]
+
+  // Present only if this member has been granted dashboard access (i.e.
+  // currently or previously holds a designation, or was linked manually).
+  adminAccount Admin?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("members")
+}
+
+// ------------------------------------------------------------
+// OFFICIAL DEPARTMENTS / DESIGNATIONS
+// ------------------------------------------------------------
+model Department {
+  id          String                 @id @default(uuid())
+  title       String                 @unique // e.g. Chairman, Editor
+  description String?
+  assignments DepartmentAssignment[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@map("departments")
+}
+
+// join table: a member holding a designation
+model DepartmentAssignment {
+  id           String     @id @default(uuid())
+  memberId     String
+  member       Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
+
+  @@unique([memberId, departmentId])
+  @@map("department_assignments")
+}
+
+// ------------------------------------------------------------
+// ACTIVITIES
+// ------------------------------------------------------------
+model Activity {
+  id          String          @id @default(uuid())
+  title       String
+  description String
+  category    String // Blood Donation Camp | Tree Plantation | Social Service | Meeting | Event
+  date        DateTime
+  report      String?
+  images      ActivityImage[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("activities")
+}
+
+model ActivityImage {
+  id         String   @id @default(uuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  imagePath  String
+  createdAt  DateTime @default(now())
+
+  @@map("activity_images")
+}
+
+// ------------------------------------------------------------
+// NEWS
+// ------------------------------------------------------------
+model News {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  imagePath   String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("news")
+}
+
+// ------------------------------------------------------------
+// GALLERY
+// ------------------------------------------------------------
+model GalleryImage {
+  id        String   @id @default(uuid())
+  imagePath String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@map("gallery_images")
+}
+
+model GalleryVideo {
+  id         String   @id @default(uuid())
+  title      String?
+  youtubeUrl String?
+  videoPath  String?
+  createdAt  DateTime @default(now())
+
+  @@map("gallery_videos")
+}
+
+// ------------------------------------------------------------
+// HOME PAGE CONTENT (single-row editable content blocks)
+// ------------------------------------------------------------
+model HomeContent {
+  id        String   @id @default(uuid())
+  section   String   @unique // HERO | ABOUT | OBJECTIVES | CONTACT
+  heading   String?
+  body      String?
+  imagePath String?
+  updatedAt DateTime @updatedAt
+
+  @@map("home_content")
+}
