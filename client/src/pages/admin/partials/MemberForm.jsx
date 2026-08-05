@@ -32,10 +32,16 @@ export default function MemberForm({ member, onSaved, onCancel }) {
     e.preventDefault();
     setError("");
 
-    if (!isEdit && (!hierarchy.assemblyId || !hierarchy.mandalId || !hierarchy.panchayatId)) {
-      setError("Please select Assembly, Mandal and Village Panchayat");
-      return;
-    }
+    if (
+    !hierarchy.stateId ||
+    !hierarchy.districtId ||
+    !hierarchy.assemblyId ||
+    !hierarchy.mandalId ||
+    !hierarchy.panchayatId
+) {
+    setError("Please select the complete hierarchy.");
+    return;
+}
 
     const data = new FormData();
     Object.entries(form).forEach(([k, v]) => data.append(k, v));
@@ -114,32 +120,83 @@ export default function MemberForm({ member, onSaved, onCancel }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div>
-          <label className="label">Assembly</label>
-          <select className="input-field" value={hierarchy.assemblyId} onChange={(e) => hierarchy.onAssemblyChange(e.target.value)}>
-            <option value="">Select</option>
-            {hierarchy.assemblies.length === 0 && isEdit && member.assembly && (
-              <option value={member.assemblyId}>{member.assembly.name}</option>
-            )}
-            {hierarchy.assemblies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Mandal</label>
-          <select className="input-field" value={hierarchy.mandalId} onChange={(e) => hierarchy.onMandalChange(e.target.value)}>
-            <option value="">Select</option>
-            {hierarchy.mandals.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Panchayat</label>
-          <select className="input-field" value={hierarchy.panchayatId} onChange={(e) => hierarchy.setPanchayatId(e.target.value)}>
-            <option value="">Select</option>
-            {hierarchy.panchayats.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+  <div>
+    <label className="label">State</label>
+    <select
+      className="input-field"
+      value={hierarchy.stateId}
+      onChange={(e)=>hierarchy.onStateChange(e.target.value)}
+    >
+      <option value="">Select State</option>
+      {hierarchy.states.map(s=>(
+        <option key={s.id} value={s.id}>{s.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="label">District</label>
+    <select
+      className="input-field"
+      value={hierarchy.districtId}
+      onChange={(e)=>hierarchy.onDistrictChange(e.target.value)}
+      disabled={!hierarchy.stateId}
+    >
+      <option value="">Select District</option>
+      {hierarchy.districts.map(d=>(
+        <option key={d.id} value={d.id}>{d.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="label">Assembly</label>
+    <select
+      className="input-field"
+      value={hierarchy.assemblyId}
+      onChange={(e)=>hierarchy.onAssemblyChange(e.target.value)}
+      disabled={!hierarchy.districtId}
+    >
+      <option value="">Select Assembly</option>
+      {hierarchy.assemblies.map(a=>(
+        <option key={a.id} value={a.id}>{a.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="label">Mandal</label>
+    <select
+      className="input-field"
+      value={hierarchy.mandalId}
+      onChange={(e)=>hierarchy.onMandalChange(e.target.value)}
+      disabled={!hierarchy.assemblyId}
+    >
+      <option value="">Select Mandal</option>
+      {hierarchy.mandals.map(m=>(
+        <option key={m.id} value={m.id}>{m.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div>
+    <label className="label">Village Panchayat</label>
+    <select
+      className="input-field"
+      value={hierarchy.panchayatId}
+      onChange={(e)=>hierarchy.setPanchayatId(e.target.value)}
+      disabled={!hierarchy.mandalId}
+    >
+      <option value="">Select Panchayat</option>
+      {hierarchy.panchayats.map(p=>(
+        <option key={p.id} value={p.id}>{p.name}</option>
+      ))}
+    </select>
+  </div>
+
+</div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
