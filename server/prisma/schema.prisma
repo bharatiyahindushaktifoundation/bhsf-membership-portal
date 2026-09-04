@@ -53,6 +53,21 @@ model OtpRequest {
   @@map("otp_requests")
 }
 
+// MSG91 verification sessions for public membership applications
+model ApplicationPhoneVerification {
+  id           String    @id @default(uuid())
+  phone        String
+  isVerified   Boolean   @default(false)
+  verifiedAt   DateTime?
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([phone])
+  @@index([phone, isVerified])
+  @@map("application_phone_verifications")
+}
+
 // ------------------------------------------------------------
 // ORGANIZATIONAL HIERARCHY
 // State -> District -> Assembly -> Mandal -> Village Panchayat -> Member

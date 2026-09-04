@@ -12,15 +12,32 @@ async function submitApplication(req, res, next) {
       return res.status(400).json({ message: "Validation failed", errors });
     }
 
-    // The applicant must have verified their phone via OTP before submitting.
-    // We check for a recently-used OTP record as proof of verification.
-    const verifiedOtp = await prisma.otpRequest.findFirst({
-      where: { phone: req.body.phone, purpose: "APPLICATION", isUsed: true },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!verifiedOtp) {
-      return res.status(400).json({ message: "Phone number is not verified. Please verify via OTP first." });
-    }
+// The applicant must have verified their phone via MSG91 OTP
+// before submitting the application.
+const verifiedPhone =
+  await prisma.applicationPhoneVerification.findFirst({
+    where: {
+      phone: req.body.phone,
+      isVerified: true,
+      verifiedAt: {
+        not: null,
+      },
+      usedAt: null,
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    orderBy: {
+      verifiedAt: "desc",
+    },
+  });
+
+if (!verifiedPhone) {
+  return res.status(400).json({
+    message:
+      "Phone number is not verified. Please verify via OTP first.",
+  });
+}
 
     const photo = req.files?.photo?.[0];
     const idProof = req.files?.idProof?.[0];
@@ -53,6 +70,16 @@ async function submitApplication(req, res, next) {
         status: "PENDING",
       },
     });
+
+    // Mark phone verification as used
+await prisma.applicationPhoneVerification.update({
+  where: {
+    id: verifiedPhone.id,
+  },
+  data: {
+    usedAt: new Date(),
+  },
+});
 
     res.status(201).json({
       message: "Application submitted successfully. It is now pending review.",

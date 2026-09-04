@@ -2,11 +2,21 @@ import api from "./api";
 
 // ---------- Auth ----------
 export const authService = {
-  sendAdminOtp: (phone) => api.post("/auth/admin/send-otp", { phone }),
-  verifyAdminOtp: (phone, otp) => api.post("/auth/admin/verify-otp", { phone, otp }),
+  sendAdminOtp: (phone) =>
+  api.post("/auth/admin/send-otp", { phone }),
+
+verifyAdminOtp: (phone, accessToken) =>
+  api.post("/auth/admin/verify-otp", {
+    phone,
+    accessToken,
+  }),
   getCurrentAdmin: () => api.get("/auth/admin/me"),
   sendApplicationOtp: (phone) => api.post("/auth/application/send-otp", { phone }),
-  verifyApplicationOtp: (phone, otp) => api.post("/auth/application/verify-otp", { phone, otp }),
+  verifyApplicationOtp: (phone, accessToken) =>
+  api.post("/auth/application/verify-otp", {
+    phone,
+    accessToken,
+  }),
 };
 
 // ---------- Organizational hierarchy ----------

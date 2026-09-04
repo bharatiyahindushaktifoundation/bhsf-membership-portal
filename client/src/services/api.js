@@ -1,14 +1,16 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
+  baseURL: "/api",
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("bhsf_admin_token");
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
   return config;
 });
 
@@ -22,5 +24,6 @@ export function fileUrl(storedPath) {
 
   if (idx === -1) return storedPath;
 
-  return `${import.meta.env.VITE_API_URL}${storedPath.substring(idx)}`;
+  // Vite proxy will forward /uploads to the backend
+  return storedPath.substring(idx);
 }
