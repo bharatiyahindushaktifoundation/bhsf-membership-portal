@@ -21,11 +21,23 @@ export default api;
 export function fileUrl(storedPath) {
   if (!storedPath) return null;
 
+  // If the database already contains a complete URL
+  if (storedPath.startsWith("http://") || storedPath.startsWith("https://")) {
+    return storedPath;
+  }
+
   const marker = "/uploads/";
   const idx = storedPath.indexOf(marker);
 
   if (idx === -1) return storedPath;
 
-  // Vite proxy will forward /uploads to the backend
-  return storedPath.substring(idx);
+  const uploadPath = storedPath.substring(idx);
+
+  const backendUrl = import.meta.env.VITE_API_URL;
+
+  if (!backendUrl) {
+    return uploadPath;
+  }
+
+  return `${backendUrl.replace(/\/$/, "")}${uploadPath}`;
 }
